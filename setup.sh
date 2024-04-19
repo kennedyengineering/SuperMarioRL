@@ -1,9 +1,20 @@
 #!/bin/bash
 
-# setup virtual environment
-python3 -m venv venv
-source venv/bin/activate
+# Constants
+GREEN='\033[0;32m'
+NC='\033[0m'
 
-# install pre-commit
-pip install pre-commit==3.4.0
+# Setup environment
+echo -e "${GREEN}Creating virtual environment${NC}"
+python3 -m venv .venv
+source .venv/bin/activate
+
+echo -e "${GREEN}Installing packages${NC}"
+pip install --no-cache-dir --upgrade pip
+pip install --no-cache-dir -r requirements.txt
+pip install pre-commit
+
+echo -e "${GREEN}Installing pre-commit hooks${NC}"
 pre-commit install
+
+echo -e "${GREEN}Finished${NC}"

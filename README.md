@@ -1,9 +1,21 @@
-# Template Respository
+# Super Mario Reinforcement Learning
 
-Contains Git pre-commit hooks to ensure code quality
+Computational Neuroscience Final Project \
+CSC 570, Spring 2024, Mugizi Robert Rwebangira
 
-## To Use
+- Braedan Kennedy (bkenne07@calpoly.edu)
+- Luis David Garcia (lgarc120@calpoly.edu)
+- Briana Kuo (brkuo@calpoly.edu)
+- OTHER GUY (@calpoly.edu)
 
-1. Fork this template repository
-2. Run `./setup.py` to install Git hooks
-3. Program away!
+## Installation
+
+``` bash
+./setup.sh
+```
+
+## Environment Activation
+
+``` bash
+source .venv/bin/activate
+```
