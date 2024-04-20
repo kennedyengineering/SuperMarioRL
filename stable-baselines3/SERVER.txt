@@ -22,7 +22,7 @@ GPU[RTX A6000] (torch==1.12.1+cu113): ~275 FPS, 100352 total_timesteps, 367 time
 CPU[64 cores] (torch==2.2.2): ~195 FPS, 100352 total_timesteps, 524 time_elapsed
 CPU[128 cores] (torch==2.2.2): ~135 FPS, 100352 total_timesteps, 762 time_elapsed
 
-It is possible that the 128 core run performed worse than the 64 core run because compute was taken away from the simulator.
+It is possible that the 128 core run performed worse than the 64 core run because compute was taken away from the simulator or other CPU bound computations.
 A quick test with 126 cores (torch==2.2.2) showed a performance of ~160 FPS, supports this theory.
 
 hack: ran out of disk space while installing libraries, so moved project to /datasets drive and created symlink to home directory. works like a charm.
