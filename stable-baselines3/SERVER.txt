@@ -1,0 +1,28 @@
+127xNN.csc.calpoly [where NN is 01 to 18] server has CUDA 11.3
+compatible torch version: torch==1.12.1+cu113 --extra-index-url https://download.pytorch.org/whl/cu113
+compatible tensorflow version: tensorflow[and-cuda]==2.11.0
+
+server hardware: 64 CPU CORE, 128 CPU THREAD, RTX A6000, 130GB RAM
+AMD Ryzen Threadripper 3990X 64-Core Processor
+
+need to run setup.sh like "bash setup.sh", the "./setup.sh" won't work.
+
+server will run code as is with packages in requirements.txt on CPU only
+just make sure to use X-forwarding when render_mode="human"
+
+stable-baselines3==2.30 requires torch>=1.13.0
+however, it seems to work just fine with torch==1.12.1+cu113
+after installing using requirements.txt, uninstall torch and reinstall the 1.12.1+cu113 version
+
+by default torch==2.2.2 uses half the CPU (64 out of 128 cores)
+to enable full CPU useage add this line to top of file: torch.set_num_threads(128)
+
+speed comparison (train_sb3.py with 100_000 timesteps):
+GPU[RTX A6000] (torch==1.12.1+cu113): ~275 FPS, 100352 total_timesteps, 367 time_elapsed
+CPU[64 cores] (torch==2.2.2): ~195 FPS, 100352 total_timesteps, 524 time_elapsed
+CPU[128 cores] (torch==2.2.2): ~135 FPS, 100352 total_timesteps, 762 time_elapsed
+
+It is possible that the 128 core run performed worse than the 64 core run because compute was taken away from the simulator.
+A quick test with 126 cores (torch==2.2.2) showed a performance of ~160 FPS, supports this theory.
+
+hack: ran out of disk space while installing libraries, so moved project to /datasets drive and created symlink to home directory. works like a charm.
