@@ -71,3 +71,5 @@ if __name__ == "__main__":
     model = PPO("CnnPolicy", vec_env, verbose=1)
     model.learn(total_timesteps=1_000_000)
     model.save(args.save_file)
+
+    vec_env.close()
