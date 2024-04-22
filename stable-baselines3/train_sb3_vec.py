@@ -11,6 +11,9 @@ from gym_super_mario_bros.actions import SIMPLE_MOVEMENT
 import numpy as np
 import argparse
 
+# TODO: add checkpointing
+# TODO: framestacking with FrameStack or VecFrameStack? if FrameStack, then the make_env() method can be used in infer_sb3 and train_sb3
+
 
 def make_env():
     """
@@ -48,7 +51,7 @@ if __name__ == "__main__":
     # Parse arguments
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--save_file",
+        "--weights_file",
         help="Path of weights file to be saved",
         default="weights_vec",
         type=str,
@@ -57,6 +60,12 @@ if __name__ == "__main__":
         "--num_envs",
         help="Number of environments to run in parallel",
         default=5,
+        type=int,
+    )
+    parser.add_argument(
+        "--num_time_steps",
+        help="Number of timesteps to run environment",
+        default=1_000_000,
         type=int,
     )
     args = parser.parse_args()
@@ -69,7 +78,7 @@ if __name__ == "__main__":
 
     # Train agent
     model = PPO("CnnPolicy", vec_env, verbose=1)
-    model.learn(total_timesteps=1_000_000)
-    model.save(args.save_file)
+    model.learn(total_timesteps=args.num_time_steps)
+    model.save(args.weights_file)
 
     vec_env.close()

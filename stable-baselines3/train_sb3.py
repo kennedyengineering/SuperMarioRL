@@ -8,6 +8,10 @@ from gym_super_mario_bros.actions import SIMPLE_MOVEMENT
 
 import numpy as np
 import cv2
+import argparse
+
+# TODO: add checkpointing
+# TODO: merge train_sb3_vec, train_sb3_ and infer_sb3 into a single script
 
 
 class ShowObservation(gym.ObservationWrapper):
@@ -22,29 +26,46 @@ class ShowObservation(gym.ObservationWrapper):
         return observation
 
 
-# Create environment
-env = gym_super_mario_bros.make(
-    "SuperMarioBros-1-1-v0", render_mode="rgb_array", apply_api_compatibility=True
-)
+if __name__ == "__main__":
+    # Parse arguments
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--weights_file",
+        help="Path of weights file to be saved",
+        default="weights",
+        type=str,
+    )
+    parser.add_argument(
+        "--num_time_steps",
+        help="Number of timesteps to run environment",
+        default=1_000_000,
+        type=int,
+    )
+    args = parser.parse_args()
 
-# Wrapper to setup action space
-JoypadSpace.reset = lambda self, **kwargs: self.env.reset(**kwargs)  # HACK
-env = JoypadSpace(env, SIMPLE_MOVEMENT)
-env.action_space = gym.spaces.Discrete(len(SIMPLE_MOVEMENT))  # HACK
+    # Create environment
+    env = gym_super_mario_bros.make(
+        "SuperMarioBros-1-1-v0", render_mode="rgb_array", apply_api_compatibility=True
+    )
 
-# Wrapper to fix observation space (Needs a gymnasium wrapper to avoid errors)
-env.observation_space = gym.spaces.Box(
-    low=0, high=255, shape=(240, 256, 3), dtype=np.uint8
-)  # HACK
-env = gym.wrappers.GrayScaleObservation(env, keep_dim=False)
-# env = ShowObservation(env, "gray")
-env = gym.wrappers.ResizeObservation(env, 84)
-# env = ShowObservation(env, "scale")
-env = gym.wrappers.FrameStack(env, 3)
+    # Wrapper to setup action space
+    JoypadSpace.reset = lambda self, **kwargs: self.env.reset(**kwargs)  # HACK
+    env = JoypadSpace(env, SIMPLE_MOVEMENT)
+    env.action_space = gym.spaces.Discrete(len(SIMPLE_MOVEMENT))  # HACK
 
-# Train agent
-model = PPO("CnnPolicy", env, verbose=1)
-model.learn(total_timesteps=1_000_000)
-model.save("weights")
+    # Wrapper to fix observation space (Needs a gymnasium wrapper to avoid errors)
+    env.observation_space = gym.spaces.Box(
+        low=0, high=255, shape=(240, 256, 3), dtype=np.uint8
+    )  # HACK
+    env = gym.wrappers.GrayScaleObservation(env, keep_dim=False)
+    # env = ShowObservation(env, "gray")
+    env = gym.wrappers.ResizeObservation(env, 84)
+    # env = ShowObservation(env, "scale")
+    env = gym.wrappers.FrameStack(env, 3)
 
-env.close()
+    # Train agent
+    model = PPO("CnnPolicy", env, verbose=1)
+    model.learn(total_timesteps=args.num_time_steps)
+    model.save(args.weights_file)
+
+    env.close()

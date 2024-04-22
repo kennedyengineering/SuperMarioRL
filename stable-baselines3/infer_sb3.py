@@ -8,6 +8,7 @@ from gym_super_mario_bros.actions import SIMPLE_MOVEMENT
 
 import numpy as np
 import cv2
+import argparse
 
 
 class ResizeObservation(gym.ObservationWrapper):
@@ -31,31 +32,44 @@ class ResizeObservation(gym.ObservationWrapper):
         return observation
 
 
-# Create environment
-env = gym_super_mario_bros.make(
-    "SuperMarioBros-1-1-v0", render_mode="human", apply_api_compatibility=True
-)
+if __name__ == "__main__":
+    # Parse arguments
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "weights_file",
+        help="Path of weights file to be loaded",
+        type=str,
+    )
+    args = parser.parse_args()
 
-# Apply Wrappers to environment
-# Wrapper to setup action space
-JoypadSpace.reset = lambda self, **kwargs: self.env.reset(**kwargs)  # HACK
-env = JoypadSpace(env, SIMPLE_MOVEMENT)
-env.action_space = gym.spaces.Discrete(len(SIMPLE_MOVEMENT))  # HACK
-# Wrapper to fix observation space
-env = ResizeObservation(env, shape=84)
+    # Create environment
+    env = gym_super_mario_bros.make(
+        "SuperMarioBros-1-1-v0", render_mode="rgb_array", apply_api_compatibility=True
+    )
 
-# Run inference on agent
-model = PPO.load("weights")
+    # Wrapper to setup action space
+    JoypadSpace.reset = lambda self, **kwargs: self.env.reset(**kwargs)  # HACK
+    env = JoypadSpace(env, SIMPLE_MOVEMENT)
+    env.action_space = gym.spaces.Discrete(len(SIMPLE_MOVEMENT))  # HACK
 
-terminated = True
-truncated = False
-for step in range(5000):
-    if terminated or truncated:
-        observation, info = env.reset()
+    # Wrapper to fix observation space (Needs a gymnasium wrapper to avoid errors)
+    env.observation_space = gym.spaces.Box(
+        low=0, high=255, shape=(240, 256, 3), dtype=np.uint8
+    )  # HACK
+    env = gym.wrappers.GrayScaleObservation(env, keep_dim=False)
+    env = gym.wrappers.ResizeObservation(env, 84)
+    env = gym.wrappers.FrameStack(env, 3)
 
-    action, _state = model.predict(observation)
-    observation, reward, terminated, truncated, info = env.step(action.item())
+    # Run inference on agent
+    model = PPO.load(args.weights_file)
 
-    env.render()
+    terminated = False
+    truncated = False
+    observation, info = env.reset()
+    while not terminated or truncated:
+        action, _state = model.predict(observation)
+        observation, reward, terminated, truncated, info = env.step(action.item())
 
-env.close()
+        env.render()
+
+    env.close()
