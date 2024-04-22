@@ -32,3 +32,4 @@ stable-baselines3 can take a gym==0.26.2 environment and will automatically appl
 JoypadSpace creates a gym.spaces.Discrete, when stable-baselines3 checks for a gymnasium.spaces.Discrete and will throw an error.
 JoypadSpace causes an issue with env.reset(), is fixable by overriding the method with a lambda.
 model.predict(obs) returns action, _state. action is a numpy.ndarray, I think because stable-baselines3 trains the model using VecEnv, so an action is returned for each environment. For now, just bypassing creating a VecEnv by passing action.item() into env.step().
+to use tensorboard: tensorboard --logdir <DIR>

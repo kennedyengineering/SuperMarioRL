@@ -7,30 +7,7 @@ import gym_super_mario_bros
 from gym_super_mario_bros.actions import SIMPLE_MOVEMENT
 
 import numpy as np
-import cv2
 import argparse
-
-
-class ResizeObservation(gym.ObservationWrapper):
-    def __init__(self, env, shape):
-        super().__init__(env)
-        if isinstance(shape, int):
-            self.shape = (shape, shape)
-        else:
-            self.shape = tuple(shape)
-
-        obs_shape = self.shape + self.observation_space.shape[2:]
-        self.observation_space = gym.spaces.Box(
-            low=0, high=255, shape=obs_shape, dtype=np.uint8
-        )
-
-    def observation(self, observation):
-        observation = cv2.resize(
-            observation, dsize=self.shape, interpolation=cv2.INTER_CUBIC
-        )
-
-        return observation
-
 
 if __name__ == "__main__":
     # Parse arguments

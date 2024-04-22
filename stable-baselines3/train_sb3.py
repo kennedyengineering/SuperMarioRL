@@ -42,6 +42,12 @@ if __name__ == "__main__":
         type=str,
     )
     parser.add_argument(
+        "--tensorboard_log_dir",
+        help="Path of tensorboard log directory",
+        default=None,
+        type=str,
+    )
+    parser.add_argument(
         "--num_time_steps",
         help="Number of timesteps to run environment",
         default=1_000_000,
@@ -71,9 +77,15 @@ if __name__ == "__main__":
 
     # Train agent
     if args.pretrained_weights_file:
-        model = PPO.load(args.pretrained_weights_file, env=env)
+        model = PPO.load(
+            args.pretrained_weights_file,
+            env=env,
+            tensorboard_log=args.tensorboard_log_dir,
+        )
     else:
-        model = PPO("CnnPolicy", env, verbose=1)
+        model = PPO(
+            "CnnPolicy", env=env, verbose=1, tensorboard_log=args.tensorboard_log_dir
+        )
     model.learn(total_timesteps=args.num_time_steps, reset_num_timesteps=False)
     model.save(args.weights_file)
 
