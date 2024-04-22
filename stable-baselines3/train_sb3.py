@@ -10,23 +10,14 @@ import numpy as np
 import cv2
 
 
-class ResizeObservation(gym.ObservationWrapper):
-    def __init__(self, env, shape):
+class ShowObservation(gym.ObservationWrapper):
+    def __init__(self, env, win_name="Observation"):
         super().__init__(env)
-        if isinstance(shape, int):
-            self.shape = (shape, shape)
-        else:
-            self.shape = tuple(shape)
-
-        obs_shape = self.shape + self.observation_space.shape[2:]
-        self.observation_space = gym.spaces.Box(
-            low=0, high=255, shape=obs_shape, dtype=np.uint8
-        )
+        self.win_name = win_name
 
     def observation(self, observation):
-        observation = cv2.resize(
-            observation, dsize=self.shape, interpolation=cv2.INTER_CUBIC
-        )
+        cv2.imshow(self.win_name, cv2.cvtColor(observation, cv2.COLOR_BGR2RGB))
+        cv2.waitKey(1)
 
         return observation
 
@@ -36,13 +27,20 @@ env = gym_super_mario_bros.make(
     "SuperMarioBros-1-1-v0", render_mode="rgb_array", apply_api_compatibility=True
 )
 
-# Apply Wrappers to environment
 # Wrapper to setup action space
 JoypadSpace.reset = lambda self, **kwargs: self.env.reset(**kwargs)  # HACK
 env = JoypadSpace(env, SIMPLE_MOVEMENT)
 env.action_space = gym.spaces.Discrete(len(SIMPLE_MOVEMENT))  # HACK
-# Wrapper to fix observation space
-env = ResizeObservation(env, shape=84)
+
+# Wrapper to fix observation space (Needs a gymnasium wrapper to avoid errors)
+env.observation_space = gym.spaces.Box(
+    low=0, high=255, shape=(240, 256, 3), dtype=np.uint8
+)  # HACK
+env = gym.wrappers.GrayScaleObservation(env, keep_dim=False)
+# env = ShowObservation(env, "gray")
+env = gym.wrappers.ResizeObservation(env, 84)
+# env = ShowObservation(env, "scale")
+env = gym.wrappers.FrameStack(env, 3)
 
 # Train agent
 model = PPO("CnnPolicy", env, verbose=1)
