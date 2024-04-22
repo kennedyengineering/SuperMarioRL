@@ -36,6 +36,12 @@ if __name__ == "__main__":
         type=str,
     )
     parser.add_argument(
+        "--pretrained_weights_file",
+        help="Path of weights file to continue training on",
+        default=None,
+        type=str,
+    )
+    parser.add_argument(
         "--num_time_steps",
         help="Number of timesteps to run environment",
         default=1_000_000,
@@ -64,8 +70,11 @@ if __name__ == "__main__":
     env = gym.wrappers.FrameStack(env, 3)
 
     # Train agent
-    model = PPO("CnnPolicy", env, verbose=1)
-    model.learn(total_timesteps=args.num_time_steps)
+    if args.pretrained_weights_file:
+        model = PPO.load(args.pretrained_weights_file, env=env)
+    else:
+        model = PPO("CnnPolicy", env, verbose=1)
+    model.learn(total_timesteps=args.num_time_steps, reset_num_timesteps=False)
     model.save(args.weights_file)
 
     env.close()
