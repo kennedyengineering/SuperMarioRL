@@ -44,7 +44,7 @@ if __name__ == "__main__":
 
     # Create environment
     env = gym_super_mario_bros.make(
-        "SuperMarioBros-1-1-v0", render_mode="rgb_array", apply_api_compatibility=True
+        "SuperMarioBros-1-1-v0", render_mode="human", apply_api_compatibility=True
     )
 
     # Wrapper to setup action space
@@ -65,11 +65,16 @@ if __name__ == "__main__":
 
     terminated = False
     truncated = False
+    reward_total = 0
     observation, info = env.reset()
     while not terminated or truncated:
-        action, _state = model.predict(observation)
+        action, _state = model.predict(
+            np.array(observation)
+        )  # np.array(obs) is necessary to convert LazyFrames (output type of FrameStack) before passing to model
         observation, reward, terminated, truncated, info = env.step(action.item())
+        reward_total += reward
 
         env.render()
 
+    print("reward:", reward_total)
     env.close()
