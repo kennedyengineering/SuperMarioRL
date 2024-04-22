@@ -26,3 +26,11 @@ It is possible that the 128 core run performed worse than the 64 core run becaus
 A quick test with 126 cores (torch==2.2.2) showed a performance of ~160 FPS, supports this theory.
 
 hack: ran out of disk space while installing libraries, so moved project to /datasets drive and created symlink to home directory. works like a charm.
+
+torch==1.12.1+cu113 works fine for training and saving weights (train_sb3.py), however fails to load the weights (infer_sb3.py)
+
+torch==1.13.1+cu116 --extra-index-url https://download.pytorch.org/whl/cu116 works fine for training and saving weights (train_sb3.py), but still fails to load the weights (infer_sb3.py). Gets error: UserWarning: Can't initialize NVML, but training still continues.
+
+torch==1.13.0+cu116 --extra-index-url https://download.pytorch.org/whl/cu116, same results as torch==1.13.1+cu116
+
+torch==2.2.2+cu118 --extra-index-url https://download.pytorch.org/whl/cu118, works perfectly. Still gets error: UserWarning: Can't initialize NVML, but training still continues. torch==2.2.2 was previously installed, however the CUDA 12 version was installed by default. The servers apparently work with CUDA 11 versions. Was still able to achieve the ~275 FPS torch==1.12.1 was able to.
