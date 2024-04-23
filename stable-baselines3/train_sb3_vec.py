@@ -71,10 +71,14 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # Create vectorized environment
-    vec_env = SubprocVecEnv([make_env() for _ in range(args.num_envs)])
+    vec_env = SubprocVecEnv(
+        [make_env() for _ in range(args.num_envs)]
+    )  # Observation space is Box(0, 255, (84, 84, 1), uint8)
 
     # Apply wrappers to environments
-    vec_env = VecFrameStack(vec_env, n_stack=3)
+    vec_env = VecFrameStack(
+        vec_env, n_stack=3
+    )  # Observation space becomes Box(0, 255, (84, 84, 3), uint8)
 
     # Train agent
     model = PPO("CnnPolicy", vec_env, verbose=1)
