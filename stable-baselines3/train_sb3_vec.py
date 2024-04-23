@@ -1,8 +1,7 @@
 import gymnasium as gym
 
 from stable_baselines3 import PPO
-from stable_baselines3.common.vec_env import SubprocVecEnv
-from stable_baselines3.common.vec_env import VecFrameStack
+from stable_baselines3.common.vec_env import SubprocVecEnv, VecFrameStack, VecMonitor
 
 from nes_py.wrappers import JoypadSpace
 import gym_super_mario_bros
@@ -82,6 +81,9 @@ if __name__ == "__main__":
     )  # Observation space is Box(0, 255, (84, 84, 1), uint8)
 
     # Apply wrappers to environments
+    vec_env = VecMonitor(
+        vec_env
+    )  # Needed to retrieve ep_len_mean and ep_rew_mean datapoints that the regular Monitor wrapper usually produces
     vec_env = VecFrameStack(
         vec_env, n_stack=3
     )  # Observation space becomes Box(0, 255, (84, 84, 3), uint8)
