@@ -57,6 +57,12 @@ if __name__ == "__main__":
         type=str,
     )
     parser.add_argument(
+        "--tensorboard_log_dir",
+        help="Path of tensorboard log directory",
+        default=None,
+        type=str,
+    )
+    parser.add_argument(
         "--num_envs",
         help="Number of environments to run in parallel",
         default=5,
@@ -81,7 +87,9 @@ if __name__ == "__main__":
     )  # Observation space becomes Box(0, 255, (84, 84, 3), uint8)
 
     # Train agent
-    model = PPO("CnnPolicy", vec_env, verbose=1)
+    model = PPO(
+        "CnnPolicy", env=vec_env, verbose=1, tensorboard_log=args.tensorboard_log_dir
+    )
     model.learn(total_timesteps=args.num_time_steps)
     model.save(args.weights_file)
 
