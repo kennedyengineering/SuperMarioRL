@@ -56,6 +56,12 @@ if __name__ == "__main__":
         type=str,
     )
     parser.add_argument(
+        "--pretrained_weights_file",
+        help="Path of weights file to continue training on",
+        default=None,
+        type=str,
+    )
+    parser.add_argument(
         "--tensorboard_log_dir",
         help="Path of tensorboard log directory",
         default=None,
@@ -89,10 +95,20 @@ if __name__ == "__main__":
     )  # Observation space becomes Box(0, 255, (84, 84, 3), uint8)
 
     # Train agent
-    model = PPO(
-        "CnnPolicy", env=vec_env, verbose=1, tensorboard_log=args.tensorboard_log_dir
-    )
-    model.learn(total_timesteps=args.num_time_steps)
+    if args.pretrained_weights_file:
+        model = PPO.load(
+            args.pretrained_weights_file,
+            env=vec_env,
+            tensorboard_log=args.tensorboard_log_dir,
+        )
+    else:
+        model = PPO(
+            "CnnPolicy",
+            env=vec_env,
+            verbose=1,
+            tensorboard_log=args.tensorboard_log_dir,
+        )
+    model.learn(total_timesteps=args.num_time_steps, reset_num_timesteps=False)
     model.save(args.weights_file)
 
     vec_env.close()
