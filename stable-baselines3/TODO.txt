@@ -8,6 +8,7 @@ Next steps:
       - FrameStack  (Pass last n frames as observation. Enables the agent to deduce velocities, acceleration, etc.)
   - Basically recreate a variant of the AtariPreprocessing wrapper...
   - It may also be necessary to tweak the learning parameters of the agent
+      - Adjust learning rate
 
   - Research and implement a custom agent
   - Compare results to baseline algorithm implementation (stable-baselines3)
