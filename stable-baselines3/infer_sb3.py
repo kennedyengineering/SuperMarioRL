@@ -35,7 +35,7 @@ if __name__ == "__main__":
     )  # HACK
     env = gym.wrappers.GrayScaleObservation(env, keep_dim=False)
     env = gym.wrappers.ResizeObservation(env, 84)
-    env = gym.wrappers.FrameStack(env, 3)
+    env = gym.wrappers.FrameStack(env, 3)  # Output shape (3, 84, 84)
 
     # Run inference on agent
     model = PPO.load(args.weights_file)
