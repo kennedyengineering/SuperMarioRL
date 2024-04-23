@@ -75,6 +75,8 @@ if __name__ == "__main__":
     # env = ShowObservation(env, "scale")
     env = gym.wrappers.FrameStack(env, 3)  # Output shape (3, 84, 84)
 
+    # FIXME: observation shape should be (84,84,3) like VecFrameStack?
+
     # Train agent
     if args.pretrained_weights_file:
         model = PPO.load(
