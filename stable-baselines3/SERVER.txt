@@ -34,3 +34,5 @@ torch==1.13.1+cu116 --extra-index-url https://download.pytorch.org/whl/cu116 wor
 torch==1.13.0+cu116 --extra-index-url https://download.pytorch.org/whl/cu116, same results as torch==1.13.1+cu116
 
 torch==2.2.2+cu118 --extra-index-url https://download.pytorch.org/whl/cu118, works perfectly. Still gets error: UserWarning: Can't initialize NVML, but training still continues. torch==2.2.2 was previously installed, however the CUDA 12 version was installed by default. The servers apparently work with CUDA 11 versions. Was still able to achieve the ~275 FPS torch==1.12.1 was able to.
+
+to change the permissions of a directory so others can view them (drwxr--r--) use `chmod 744 <dir> --recursive`
