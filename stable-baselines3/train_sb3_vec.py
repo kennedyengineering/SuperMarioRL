@@ -10,9 +10,31 @@ from gym_super_mario_bros.actions import SIMPLE_MOVEMENT
 
 import numpy as np
 import argparse
+from typing import Callable
 
 # TODO: add checkpointing
 # TODO: framestacking with FrameStack or VecFrameStack? if FrameStack, then the make_env() method can be used in infer_sb3 and train_sb3
+
+
+def linear_schedule(initial_value: float) -> Callable[[float], float]:
+    """
+    Linear learning rate schedule.
+
+    :param initial_value: Initial learning rate.
+    :return: schedule that computes
+      current learning rate depending on remaining progress
+    """
+
+    def func(progress_remaining: float) -> float:
+        """
+        Progress will decrease from 1 (beginning) to 0.
+
+        :param progress_remaining:
+        :return: current learning rate
+        """
+        return progress_remaining * initial_value
+
+    return func
 
 
 def make_env():
@@ -81,6 +103,17 @@ if __name__ == "__main__":
         default=1_000_000,
         type=int,
     )
+    parser.add_argument(
+        "--learning_rate",
+        help="Learning rate of agent",
+        default=0.003,
+        type=float,
+    )
+    parser.add_argument(
+        "--learning_rate_anneal",
+        help="Enable learning rate scheduler",
+        action="store_true",
+    )
     args = parser.parse_args()
 
     # Create vectorized environment
@@ -97,11 +130,15 @@ if __name__ == "__main__":
     )  # Observation space becomes Box(0, 255, (84, 84, 3), uint8)
 
     # Train agent
+    learning_rate = args.learning_rate
+    if args.learning_rate_anneal:
+        learning_rate = linear_schedule(args.learning_rate)
     if args.pretrained_weights_file:
         model = PPO.load(
             args.pretrained_weights_file,
             env=vec_env,
             tensorboard_log=args.tensorboard_log_dir,
+            learning_rate=learning_rate,
         )
     else:
         model = PPO(
@@ -109,6 +146,7 @@ if __name__ == "__main__":
             env=vec_env,
             verbose=1,
             tensorboard_log=args.tensorboard_log_dir,
+            learning_rate=learning_rate,
         )
     model.learn(total_timesteps=args.num_time_steps, reset_num_timesteps=False)
     model.save(args.weights_file)
