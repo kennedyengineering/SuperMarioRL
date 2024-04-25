@@ -4,7 +4,7 @@ Next steps:
       - VecEnv	(Run multiple environments in parallel) <DONE>
       - ResizeObservation  (Reduce the observation image size. Reduces computational complexity. Currently custom implementation, should replace) <DONE>
       - GrayScaleObservation (Convert observation images from RGB to Grayscale. Reduces complexity of observation) <DONE>
-      - FrameSkip  (Only pass every n frames as observation. Reduces redundant/highly-similar observations)
+      - FrameSkip  (Only pass every n frames as observation. Reduces redundant/highly-similar observations) <DONE>
       - FrameStack  (Pass last n frames as observation. Enables the agent to deduce velocities, acceleration, etc.) <DONE>
   - Basically recreate a variant of the AtariPreprocessing wrapper...
   - It may also be necessary to tweak the learning parameters of the agent

@@ -1,6 +1,7 @@
 import gymnasium as gym
 
 from stable_baselines3 import PPO
+from stable_baselines3.common.atari_wrappers import MaxAndSkipEnv
 
 from nes_py.wrappers import JoypadSpace
 import gym_super_mario_bros
@@ -102,6 +103,7 @@ if __name__ == "__main__":
     env.observation_space = gym.spaces.Box(
         low=0, high=255, shape=(240, 256, 3), dtype=np.uint8
     )  # HACK
+    env = MaxAndSkipEnv(env, 4)
     env = gym.wrappers.GrayScaleObservation(env, keep_dim=False)
     # env = ShowObservation(env, "gray")
     env = gym.wrappers.ResizeObservation(env, 84)
