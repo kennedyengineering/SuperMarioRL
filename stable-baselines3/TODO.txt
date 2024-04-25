@@ -9,6 +9,7 @@ Next steps:
   - Basically recreate a variant of the AtariPreprocessing wrapper...
   - It may also be necessary to tweak the learning parameters of the agent
       - Adjust learning rate
+      - Adjust n_steps
 
   - Research and implement a custom agent
   - Compare results to baseline algorithm implementation (stable-baselines3)
