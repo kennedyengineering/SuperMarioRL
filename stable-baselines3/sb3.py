@@ -39,7 +39,7 @@ def linear_schedule(initial_value: float) -> Callable[[float], float]:
     return func
 
 
-def make_env():
+def make_env(render_mode="rgb_array"):
     """
     Utility function for multiprocessed env.
     """
@@ -48,7 +48,7 @@ def make_env():
         # Create environment
         env = gym_super_mario_bros.make(
             "SuperMarioBros-1-1-v0",
-            render_mode="human",
+            render_mode=render_mode,
             apply_api_compatibility=True,
         )
 
@@ -116,7 +116,7 @@ def parse_args(input=sys.argv[1:]):
         )
         parser.add_argument(
             "--num_time_steps",
-            help="Number of timesteps to run environment (-1 means run until done)",
+            help="Number of timesteps to run environment (negative value means run until done)",
             default=-1,
             type=int,
         )
@@ -124,9 +124,8 @@ def parse_args(input=sys.argv[1:]):
     # Parse train options
     if top_args.train:
         parser.add_argument(
-            "--weights_file",
+            "weights_file",
             help="Path of weights file to be saved",
-            default="weights_vec",
             type=str,
         )
         parser.add_argument(
@@ -171,14 +170,15 @@ def parse_args(input=sys.argv[1:]):
 
 
 if __name__ == "__main__":
+    # Parse arguments
     top_args, sub_args = parse_args()
 
-    print(top_args, sub_args)
-    exit(0)
-
     # Create vectorized environment
+    render_mode = "rgb_array"
+    if top_args.inference:
+        render_mode = "human"
     vec_env = SubprocVecEnv(
-        [make_env() for _ in range(args.num_envs)]
+        [make_env(render_mode) for _ in range(sub_args.num_envs)]
     )  # Observation space is Box(0, 255, (84, 84, 1), uint8)
 
     # Apply wrappers to environments
@@ -189,32 +189,35 @@ if __name__ == "__main__":
         vec_env, n_stack=3
     )  # Observation space becomes Box(0, 255, (84, 84, 3), uint8)
 
-    if args.inference:
+    if top_args.inference:
         # Inference agent
-        model = PPO.load(args.weights_file)
+        model = PPO.load(sub_args.pretrained_weights_file)
 
         done = [False]
+        time_steps = sub_args.num_time_steps
         reward_total = 0
         observation = vec_env.reset()
-        while not any(done):
+        while not any(done) and (time_steps > 0 or time_steps < 0):
             action, _ = model.predict(observation, deterministic=True)
             observation, reward, done, _ = vec_env.step(action)
+            time_steps -= 1
             reward_total += reward
 
             vec_env.render()
 
+        print("time_steps:", sub_args.num_time_steps - time_steps)
         print("reward:", reward_total)
 
-    if args.train:
+    if top_args.train:
         # Train agent
-        learning_rate = args.learning_rate
-        if args.learning_rate_anneal:
-            learning_rate = linear_schedule(args.learning_rate)
-        if args.pretrained_weights_file:
+        learning_rate = sub_args.learning_rate
+        if sub_args.learning_rate_anneal:
+            learning_rate = linear_schedule(sub_args.learning_rate)
+        if sub_args.pretrained_weights_file:
             model = PPO.load(
-                args.pretrained_weights_file,
+                sub_args.pretrained_weights_file,
                 env=vec_env,
-                tensorboard_log=args.tensorboard_log_dir,
+                tensorboard_log=sub_args.tensorboard_log_dir,
                 learning_rate=learning_rate,
             )
         else:
@@ -222,10 +225,10 @@ if __name__ == "__main__":
                 "CnnPolicy",
                 env=vec_env,
                 verbose=1,
-                tensorboard_log=args.tensorboard_log_dir,
+                tensorboard_log=sub_args.tensorboard_log_dir,
                 learning_rate=learning_rate,
             )
-        model.learn(total_timesteps=args.num_time_steps, reset_num_timesteps=False)
-        model.save(args.weights_file)
+        model.learn(total_timesteps=sub_args.num_time_steps, reset_num_timesteps=False)
+        model.save(sub_args.weights_file)
 
     vec_env.close()
