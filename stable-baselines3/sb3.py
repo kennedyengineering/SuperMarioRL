@@ -12,6 +12,7 @@ from gym_super_mario_bros.actions import SIMPLE_MOVEMENT
 
 import numpy as np
 import argparse
+import sys
 from typing import Callable
 
 # TODO: add checkpointing
@@ -71,72 +72,109 @@ def make_env():
     return _init
 
 
-def parse_args():
-    # Parse arguments
+def parse_args(input=sys.argv[1:]):
+    # Parse top level flag
+    removed = False
+    if "-h" in input and input.index("-h") != 0:
+        removed = True
+        input = [x for x in input if x != "-h"]
+
     parser = argparse.ArgumentParser()
-    parser.add_argument(
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument(
         "--inference",
         help="Run a given weights file (--weights_file) in the environment",
         action="store_true",
     )
-    parser.add_argument(
+    group.add_argument(
         "--train",
         help="Train an agent in the environment",
         action="store_true",
     )
-    parser.add_argument(
-        "--weights_file",
-        help="Path of weights file to be saved/loaded",
-        default="weights_vec",
-        type=str,
-    )
-    parser.add_argument(
-        "--pretrained_weights_file",
-        help="Path of weights file to continue training on",
-        default=None,
-        type=str,
-    )
-    parser.add_argument(
-        "--tensorboard_log_dir",
-        help="Path of tensorboard log directory",
-        default=None,
-        type=str,
-    )
-    parser.add_argument(
-        "--num_envs",
-        help="Number of environments to run in parallel",
-        default=1,
-        type=int,
-    )
-    parser.add_argument(
-        "--num_time_steps",
-        help="Number of timesteps to run environment",
-        default=1_000_000,
-        type=int,
-    )
-    parser.add_argument(
-        "--learning_rate",
-        help="Learning rate of agent",
-        default=0.003,
-        type=float,
-    )
-    parser.add_argument(
-        "--learning_rate_anneal",
-        help="Enable learning rate scheduler",
-        action="store_true",
+    top_args, input = parser.parse_known_args(args=input)
+
+    if removed:
+        input.append("-h")
+
+    # Parse options
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
 
-    args = parser.parse_args()
+    # Parse inference options
+    if top_args.inference:
+        parser.add_argument(
+            "pretrained_weights_file",
+            help="Path of weights file to be loaded and perform inference on",
+            type=str,
+        )
+        parser.add_argument(
+            "--num_envs",
+            help="Number of environments to run in parallel",
+            default=1,
+            type=int,
+        )
+        parser.add_argument(
+            "--num_time_steps",
+            help="Number of timesteps to run environment (-1 means run until done)",
+            default=-1,
+            type=int,
+        )
 
-    return args
+    # Parse train options
+    if top_args.train:
+        parser.add_argument(
+            "--weights_file",
+            help="Path of weights file to be saved",
+            default="weights_vec",
+            type=str,
+        )
+        parser.add_argument(
+            "--pretrained_weights_file",
+            help="Path of weights file to be loaded and continue training from",
+            default=None,
+            type=str,
+        )
+        parser.add_argument(
+            "--tensorboard_log_dir",
+            help="Path of tensorboard log directory",
+            default=None,
+            type=str,
+        )
+        parser.add_argument(
+            "--num_envs",
+            help="Number of environments to run in parallel",
+            default=5,
+            type=int,
+        )
+        parser.add_argument(
+            "--num_time_steps",
+            help="Number of timesteps to run environment",
+            default=1_000_000,
+            type=int,
+        )
+        parser.add_argument(
+            "--learning_rate",
+            help="Learning rate of agent",
+            default=0.003,
+            type=float,
+        )
+        parser.add_argument(
+            "--learning_rate_anneal",
+            help="Enable learning rate scheduler",
+            action="store_true",
+        )
+
+    sub_args = parser.parse_args(args=input)
+
+    return top_args, sub_args
 
 
 if __name__ == "__main__":
-    args = parse_args()
+    top_args, sub_args = parse_args()
 
-    if args.inference and args.train:
-        print("ERROR: inference and train are mutually exclusive")
-        exit(0)
+    print(top_args, sub_args)
+    exit(0)
 
     # Create vectorized environment
     vec_env = SubprocVecEnv(
