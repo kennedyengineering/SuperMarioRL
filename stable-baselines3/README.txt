@@ -11,26 +11,20 @@ sudo apt install mesa-utils libglu1-mesa-dev freeglut3-dev mesa-common-dev
 install environment:
 pip install gym-super-mario-bros
 
-install StableBaselines3
+install StableBaselines3:
 pip install stable-baselines3[extra]
 
-test run evironment:
-python3 test_env.py
+[optional for GPU] if on server install correct torch package:
+pip uninstall torch
+pip install torch==2.2.2+cu118 --extra-index-url https://download.pytorch.org/whl/cu118
 
 train agent:
-python3 train_sb3.py
+python3 sb3.py --train <output_weights.zip>
 
 inference agent:
-python3 infer_sb3.py
+python3 sb3.py --inference <input_weights.zip>
 
-NOTES:
-gym_super_mario_bros.make is just an alias to gym.make for convenience.
-gym-super-mario-bros==7.4.0 ships with gym==0.26.2
-gym_super_mario_bros is a terminal application so you can play the game -- is hopelessly broken though...
-shimmy installs gymnasium(latest) and gym==0.26.2
-stable-baselines3 can take a gym==0.26.2 environment and will automatically apply compatibility wrappers (via shimmy?).
-JoypadSpace creates a gym.spaces.Discrete, when stable-baselines3 checks for a gymnasium.spaces.Discrete and will throw an error.
-JoypadSpace causes an issue with env.reset(), is fixable by overriding the method with a lambda.
-model.predict(obs) returns action, _state. action is a numpy.ndarray, I think because stable-baselines3 trains the model using VecEnv, so an action is returned for each environment. For now, just bypassing creating a VecEnv by passing action.item() into env.step().
-to use tensorboard: tensorboard --logdir <DIR>
-when resuming training for 10M timesteps, starting from weights trained for 10M timesteps, given a learning rate of 0.003 and using the linear learning rate scheduler, the starting learning rate will be 0.0015 because it thinks the training is already 50% complete. This is with reset_num_timesteps=False.
+more help:
+python3 sb3.py -h
+python3 sb3.py --train -h
+python3 sb3.py --inference -h

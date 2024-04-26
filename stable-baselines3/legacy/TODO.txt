@@ -1,0 +1,15 @@
+Next steps:
+  - Use stable-baselines3 to solve the Mario environment and get a baseline performance metric
+  - To do this, it may be necessary to add several more wrappers:
+      - VecEnv	(Run multiple environments in parallel) <DONE>
+      - ResizeObservation  (Reduce the observation image size. Reduces computational complexity. Currently custom implementation, should replace) <DONE>
+      - GrayScaleObservation (Convert observation images from RGB to Grayscale. Reduces complexity of observation) <DONE>
+      - FrameSkip  (Only pass every n frames as observation. Reduces redundant/highly-similar observations) <DONE>
+      - FrameStack  (Pass last n frames as observation. Enables the agent to deduce velocities, acceleration, etc.) <DONE>
+  - Basically recreate a variant of the AtariPreprocessing wrapper...
+  - It may also be necessary to tweak the learning parameters of the agent
+      - Adjust learning rate
+      - Adjust n_steps
+
+  - Research and implement a custom agent
+  - Compare results to baseline algorithm implementation (stable-baselines3)
