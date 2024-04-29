@@ -34,3 +34,4 @@ JoypadSpace causes an issue with env.reset(), is fixable by overriding the metho
 model.predict(obs) returns action, _state. action is a numpy.ndarray, I think because stable-baselines3 trains the model using VecEnv, so an action is returned for each environment. For now, just bypassing creating a VecEnv by passing action.item() into env.step().
 to use tensorboard: tensorboard --logdir <DIR>
 when resuming training for 10M timesteps, starting from weights trained for 10M timesteps, given a learning rate of 0.003 and using the linear learning rate scheduler, the starting learning rate will be 0.0015 because it thinks the training is already 50% complete. This is with reset_num_timesteps=False.
+to bypass pre-commit hooks use: git commit --no-verify
