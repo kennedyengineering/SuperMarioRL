@@ -143,19 +143,19 @@ def parse_args(input=sys.argv[1:]):
         parser.add_argument(
             "--num_envs",
             help="Number of environments to run in parallel",
-            default=5,
+            default=8,
             type=int,
         )
         parser.add_argument(
             "--num_time_steps",
             help="Number of timesteps to run environment",
-            default=1_000_000,
+            default=5e6,
             type=int,
         )
         parser.add_argument(
             "--learning_rate",
             help="Learning rate of agent",
-            default=0.003,
+            default=1e-4,
             type=float,
         )
         parser.add_argument(
@@ -210,15 +210,29 @@ if __name__ == "__main__":
 
     if top_args.train:
         # Train agent
+        gamma = 0.9
+        gae_lambda = 1.0
+        ent_coef = 0.01
+        batch_size = 16
+        n_epochs = 10
+        n_steps = 512
+
         learning_rate = sub_args.learning_rate
         if sub_args.learning_rate_anneal:
             learning_rate = linear_schedule(sub_args.learning_rate)
+
         if sub_args.pretrained_weights_file:
             model = PPO.load(
                 sub_args.pretrained_weights_file,
                 env=vec_env,
                 tensorboard_log=sub_args.tensorboard_log_dir,
                 learning_rate=learning_rate,
+                gamma=gamma,
+                gae_lambda=gae_lambda,
+                ent_coef=ent_coef,
+                batch_size=batch_size,
+                n_epochs=n_epochs,
+                n_steps=n_steps,
             )
         else:
             model = PPO(
@@ -227,6 +241,12 @@ if __name__ == "__main__":
                 verbose=1,
                 tensorboard_log=sub_args.tensorboard_log_dir,
                 learning_rate=learning_rate,
+                gamma=gamma,
+                gae_lambda=gae_lambda,
+                ent_coef=ent_coef,
+                batch_size=batch_size,
+                n_epochs=n_epochs,
+                n_steps=n_steps,
             )
         model.learn(total_timesteps=sub_args.num_time_steps, reset_num_timesteps=False)
         model.save(sub_args.weights_file)
