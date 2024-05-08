@@ -39,15 +39,16 @@ def linear_schedule(initial_value: float) -> Callable[[float], float]:
     return func
 
 
-def make_env(render_mode="rgb_array"):
+def make_env(world="1", level="1", render_mode="rgb_array"):
     """
     Utility function for multiprocessed env.
     """
 
     def _init():
         # Create environment
+
         env = gym_super_mario_bros.make(
-            "SuperMarioBros-1-1-v0",
+            f"SuperMarioBros-{world}-{level}-v0",
             render_mode=render_mode,
             apply_api_compatibility=True,
         )
@@ -120,6 +121,18 @@ def parse_args(input=sys.argv[1:]):
             default=-1,
             type=int,
         )
+        parser.add_argument(
+            "--world",
+            help="World at which you want to set your environment",
+            default="1",
+            type=str,
+        )
+        parser.add_argument(
+            "--level",
+            help="Level at which you want to set your environment",
+            default="1",
+            type=str,
+        )
 
     # Parse train options
     if top_args.train:
@@ -163,6 +176,18 @@ def parse_args(input=sys.argv[1:]):
             help="Enable learning rate scheduler",
             action="store_true",
         )
+        parser.add_argument(
+            "--world",
+            help="World at which you want to set your environment",
+            default="1",
+            type=str,
+        )
+        parser.add_argument(
+            "--level",
+            help="Level at which you want to set your environment",
+            default="1",
+            type=str,
+        )
 
     sub_args = parser.parse_args(args=input)
 
@@ -178,7 +203,10 @@ if __name__ == "__main__":
     if top_args.inference:
         render_mode = "human"
     vec_env = SubprocVecEnv(
-        [make_env(render_mode) for _ in range(sub_args.num_envs)]
+        [
+            make_env(sub_args.world, sub_args.level, render_mode)
+            for _ in range(sub_args.num_envs)
+        ]
     )  # Observation space is Box(0, 255, (84, 84, 1), uint8)
 
     # Apply wrappers to environments
