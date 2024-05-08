@@ -5,6 +5,8 @@ import gymnasium as gym
 from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import SubprocVecEnv, VecFrameStack, VecMonitor
 from stable_baselines3.common.atari_wrappers import MaxAndSkipEnv
+from stable_baselines3.common.callbacks import BaseCallback
+from stable_baselines3.common.results_plotter import load_results, ts2xy
 
 from nes_py.wrappers import JoypadSpace
 import gym_super_mario_bros
@@ -13,9 +15,55 @@ from gym_super_mario_bros.actions import SIMPLE_MOVEMENT
 import numpy as np
 import argparse
 import sys
+import os
 from typing import Callable
 
-# TODO: add checkpointing
+
+class SaveOnBestTrainingRewardCallback(BaseCallback):
+    """
+    Callback for saving a model (the check is done every ``check_freq`` steps)
+    based on the training reward (in practice, we recommend using ``EvalCallback``).
+
+    :param check_freq:
+    :param log_dir: Path to the folder where the model will be saved.
+      It must contains the file created by the ``Monitor`` wrapper.
+    :param verbose: Verbosity level.
+    """
+
+    def __init__(self, check_freq: int, log_dir: str, verbose: int = 1):
+        super(SaveOnBestTrainingRewardCallback, self).__init__(verbose)
+        self.check_freq = check_freq
+        self.log_dir = log_dir
+        self.save_path = os.path.join(log_dir, "best_model")
+        self.best_mean_reward = -np.inf
+
+    def _init_callback(self) -> None:
+        # Create folder if needed
+        if self.save_path is not None:
+            os.makedirs(self.save_path, exist_ok=True)
+
+    def _on_step(self) -> bool:
+        if self.n_calls % self.check_freq == 0:
+            # Retrieve training reward
+            x, y = ts2xy(load_results(self.log_dir), "timesteps")
+            if len(x) > 0:
+                # Mean training reward over the last 100 episodes
+                mean_reward = np.mean(y[-100:])
+                if self.verbose > 0:
+                    print(f"Num timesteps: {self.num_timesteps}")
+                    print(
+                        f"Best mean reward: {self.best_mean_reward:.2f} - Last mean reward per episode: {mean_reward:.2f}"
+                    )
+
+                # New best model, you could save the agent here
+                if mean_reward > self.best_mean_reward:
+                    self.best_mean_reward = mean_reward
+                    # Example for saving best model
+                    if self.verbose > 0:
+                        print(f"Saving new best model to {self.save_path}")
+                    self.model.save(self.save_path)
+
+        return True
 
 
 def linear_schedule(initial_value: float) -> Callable[[float], float]:
@@ -101,6 +149,18 @@ def parse_args(input=sys.argv[1:]):
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
+    parser.add_argument(
+        "--world",
+        help="World at which you want to set your environment",
+        default="1",
+        type=str,
+    )
+    parser.add_argument(
+        "--level",
+        help="Level at which you want to set your environment",
+        default="1",
+        type=str,
+    )
 
     # Parse inference options
     if top_args.inference:
@@ -120,18 +180,6 @@ def parse_args(input=sys.argv[1:]):
             help="Number of timesteps to run environment (negative value means run until done)",
             default=-1,
             type=int,
-        )
-        parser.add_argument(
-            "--world",
-            help="World at which you want to set your environment",
-            default="1",
-            type=str,
-        )
-        parser.add_argument(
-            "--level",
-            help="Level at which you want to set your environment",
-            default="1",
-            type=str,
         )
 
     # Parse train options
@@ -176,18 +224,6 @@ def parse_args(input=sys.argv[1:]):
             help="Enable learning rate scheduler",
             action="store_true",
         )
-        parser.add_argument(
-            "--world",
-            help="World at which you want to set your environment",
-            default="1",
-            type=str,
-        )
-        parser.add_argument(
-            "--level",
-            help="Level at which you want to set your environment",
-            default="1",
-            type=str,
-        )
 
     sub_args = parser.parse_args(args=input)
 
@@ -211,7 +247,7 @@ if __name__ == "__main__":
 
     # Apply wrappers to environments
     vec_env = VecMonitor(
-        vec_env
+        vec_env, filename=os.path.join(sub_args.tensorboard_log_dir, "monitor")
     )  # Needed to retrieve ep_len_mean and ep_rew_mean datapoints that the regular Monitor wrapper usually produces
     vec_env = VecFrameStack(
         vec_env, n_stack=3
@@ -276,7 +312,16 @@ if __name__ == "__main__":
                 n_epochs=n_epochs,
                 n_steps=n_steps,
             )
-        model.learn(total_timesteps=sub_args.num_time_steps, reset_num_timesteps=False)
+
+        callback = SaveOnBestTrainingRewardCallback(
+            check_freq=1000, log_dir=sub_args.tensorboard_log_dir
+        )
+
+        model.learn(
+            total_timesteps=sub_args.num_time_steps,
+            reset_num_timesteps=False,
+            callback=callback,
+        )
         model.save(sub_args.weights_file)
 
     vec_env.close()
