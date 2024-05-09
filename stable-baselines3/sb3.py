@@ -44,6 +44,7 @@ class SaveOnBestTrainingRewardCallback(BaseCallback):
 
     # TODO: change to _on_rollout_end and change mean computation
     # TODO: add saving best model under a single filename, in addition to the checkpoints
+    # TODO: add saving final trained file always
     def _on_step(self) -> bool:
         if self.n_calls % self.check_freq == 0:
             # Retrieve training reward
