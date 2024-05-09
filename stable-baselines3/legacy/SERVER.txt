@@ -38,3 +38,5 @@ torch==2.2.2+cu118 --extra-index-url https://download.pytorch.org/whl/cu118, wor
 to change the permissions of a directory so others can view them (drwxr--r--) use `chmod 744 <dir> --recursive`
 
 to restore all unstaged file changes in a directory use: git restore .
+
+to view tensorboard locally: ssh -L 6006:localhost:6006 <username>@127xNN.csc.calpoly.edu
