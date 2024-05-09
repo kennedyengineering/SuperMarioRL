@@ -34,7 +34,7 @@ class SaveOnBestTrainingRewardCallback(BaseCallback):
         super(SaveOnBestTrainingRewardCallback, self).__init__(verbose)
         self.check_freq = check_freq
         self.log_dir = log_dir
-        self.save_path = os.path.join(log_dir, "best_model")
+        self.save_path = os.path.join(log_dir, "models")
         self.best_mean_reward = -np.inf
 
     def _init_callback(self) -> None:
@@ -42,6 +42,8 @@ class SaveOnBestTrainingRewardCallback(BaseCallback):
         if self.save_path is not None:
             os.makedirs(self.save_path, exist_ok=True)
 
+    # TODO: change to _on_rollout_end and change mean computation
+    # TODO: add saving best model under a single filename, in addition to the checkpoints
     def _on_step(self) -> bool:
         if self.n_calls % self.check_freq == 0:
             # Retrieve training reward
@@ -58,10 +60,14 @@ class SaveOnBestTrainingRewardCallback(BaseCallback):
                 # New best model, you could save the agent here
                 if mean_reward > self.best_mean_reward:
                     self.best_mean_reward = mean_reward
+                    filename = os.path.join(
+                        self.save_path,
+                        f"model_ts_{self.num_timesteps:e}_rw_{mean_reward:.2f}",
+                    )
                     # Example for saving best model
                     if self.verbose > 0:
-                        print(f"Saving new best model to {self.save_path}")
-                    self.model.save(self.save_path)
+                        print(f"Saving new best model to {filename}")
+                    self.model.save(filename)
 
         return True
 
@@ -185,19 +191,13 @@ def parse_args(input=sys.argv[1:]):
     # Parse train options
     if top_args.train:
         parser.add_argument(
-            "weights_file",
-            help="Path of weights file to be saved",
+            "output_directory",
+            help="Path of directory where files are to be saved",
             type=str,
         )
         parser.add_argument(
             "--pretrained_weights_file",
             help="Path of weights file to be loaded and continue training from",
-            default=None,
-            type=str,
-        )
-        parser.add_argument(
-            "--tensorboard_log_dir",
-            help="Path of tensorboard log directory",
             default=None,
             type=str,
         )
@@ -224,6 +224,12 @@ def parse_args(input=sys.argv[1:]):
             help="Enable learning rate scheduler",
             action="store_true",
         )
+        parser.add_argument(
+            "--save_frequency",
+            help="Number of timesteps before running callback",
+            default=5000,
+            type=int,
+        )
 
     sub_args = parser.parse_args(args=input)
 
@@ -247,7 +253,7 @@ if __name__ == "__main__":
 
     # Apply wrappers to environments
     vec_env = VecMonitor(
-        vec_env, filename=os.path.join(sub_args.tensorboard_log_dir, "monitor")
+        vec_env, filename=os.path.join(sub_args.output_directory, "monitor")
     )  # Needed to retrieve ep_len_mean and ep_rew_mean datapoints that the regular Monitor wrapper usually produces
     vec_env = VecFrameStack(
         vec_env, n_stack=3
@@ -285,11 +291,13 @@ if __name__ == "__main__":
         if sub_args.learning_rate_anneal:
             learning_rate = linear_schedule(sub_args.learning_rate)
 
+        tensorboard_log_dir = os.path.join(sub_args.output_directory, "tensorboard_log")
+
         if sub_args.pretrained_weights_file:
             model = PPO.load(
                 sub_args.pretrained_weights_file,
                 env=vec_env,
-                tensorboard_log=sub_args.tensorboard_log_dir,
+                tensorboard_log=tensorboard_log_dir,
                 learning_rate=learning_rate,
                 gamma=gamma,
                 gae_lambda=gae_lambda,
@@ -303,7 +311,7 @@ if __name__ == "__main__":
                 "CnnPolicy",
                 env=vec_env,
                 verbose=1,
-                tensorboard_log=sub_args.tensorboard_log_dir,
+                tensorboard_log=tensorboard_log_dir,
                 learning_rate=learning_rate,
                 gamma=gamma,
                 gae_lambda=gae_lambda,
@@ -314,7 +322,8 @@ if __name__ == "__main__":
             )
 
         callback = SaveOnBestTrainingRewardCallback(
-            check_freq=1000, log_dir=sub_args.tensorboard_log_dir
+            check_freq=max(sub_args.save_frequency // sub_args.num_envs, 1),
+            log_dir=sub_args.output_directory,
         )
 
         model.learn(
@@ -322,6 +331,5 @@ if __name__ == "__main__":
             reset_num_timesteps=False,
             callback=callback,
         )
-        model.save(sub_args.weights_file)
 
     vec_env.close()
