@@ -32,6 +32,7 @@ class SaveBestModelCallback(BaseCallback):
         self.eval_env = eval_env
         self.save_path = save_path
         self.eval_freq = eval_freq
+        self.n_updates = 0
         self.best_mean_reward = -np.inf
 
     def _init_callback(self) -> None:
@@ -39,11 +40,14 @@ class SaveBestModelCallback(BaseCallback):
         if self.save_path is not None:
             os.makedirs(self.save_path, exist_ok=True)
 
-    def _on_epoch_end(self) -> bool:
-        """
-        This method will be called by the model at the end of each epoch.
+    def _on_step(self) -> bool:
+        # HACK
+        return True
 
-        :return: Whether or not training should continue.
+    def _on_training_end(self):
+        """
+        This method will be called by the model at the end of each model update
+
         """
         if self.eval_freq > 0 and self.n_epochs % self.eval_freq == 0:
             # Evaluate the model
@@ -52,11 +56,11 @@ class SaveBestModelCallback(BaseCallback):
             # Save the best model if the mean reward is better than before
             if mean_reward > self.best_mean_reward:
                 self.best_mean_reward = mean_reward
-                self.model.save(self.save_path)
+                self.model.save(os.path.join(self.save_path, "best_model"))
                 if self.verbose > 0:
                     print(f"Saving new best model with mean reward: {mean_reward}")
 
-        return True
+        self.n_updates += 1
 
     def _evaluate_model(self) -> float:
         """
@@ -64,6 +68,10 @@ class SaveBestModelCallback(BaseCallback):
 
         :return: The mean reward obtained by the model.
         """
+        # TODO: abstract evaluation method so inference can also use it?
+        if self.verbose > 0:
+            print("Starting evaluation of model")
+
         episode_rewards = []
         for _ in range(self.eval_env.num_envs):
             obs = self.eval_env.reset()
@@ -74,7 +82,13 @@ class SaveBestModelCallback(BaseCallback):
                 obs, reward, done, _ = self.eval_env.step(action)
                 episode_reward += reward
             episode_rewards.append(episode_reward)
-        return np.mean(episode_rewards)
+
+        mean_reward = np.mean(episode_rewards)
+
+        if self.verbose > 0:
+            print(f"Evaluation complete: mean reward {mean_reward}")
+
+        return mean_reward
 
 
 def linear_schedule(initial_value: float) -> Callable[[float], float]:
@@ -231,7 +245,7 @@ def parse_args(input=sys.argv[1:]):
         )
         parser.add_argument(
             "--save_frequency",
-            help="Number of epochs before running callback",
+            help="Number of model updates before running callback",
             default=2,
             type=int,
         )
