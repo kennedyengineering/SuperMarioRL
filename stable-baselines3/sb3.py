@@ -17,6 +17,10 @@ import sys
 import os
 from typing import Callable
 
+# TODO: since inference is deterministic, it doesn't make sense to run multiple environments in parallel. either add a deterministic flag or enforce the use of a single environment.
+# TODO: create a unified inference/evaluation method. the callback has _evaluate_model() which is basically the same as the inference loop on line ~284.
+#       to facilitate this, both inferece/evaluation should use the eval_env and only instantiate vec_env if training mode is selected.
+
 
 class SaveBestModelCallback(BaseCallback):
     """
@@ -44,12 +48,12 @@ class SaveBestModelCallback(BaseCallback):
         # HACK
         return True
 
-    def _on_training_end(self):
+    def _on_rollout_start(self):
         """
-        This method will be called by the model at the end of each model update
+        This method will be called by the model after each update
 
         """
-        if self.eval_freq > 0 and self.n_epochs % self.eval_freq == 0:
+        if self.eval_freq > 0 and self.n_updates % self.eval_freq == 0:
             # Evaluate the model
             mean_reward = self._evaluate_model()
 
@@ -68,7 +72,7 @@ class SaveBestModelCallback(BaseCallback):
 
         :return: The mean reward obtained by the model.
         """
-        # TODO: abstract evaluation method so inference can also use it?
+
         if self.verbose > 0:
             print("Starting evaluation of model")
 
@@ -340,7 +344,6 @@ if __name__ == "__main__":
                 n_steps=n_steps,
             )
 
-        # TODO: run inference on eval_env?
         eval_env = SubprocVecEnv(
             [make_env(sub_args.world, sub_args.level, "rgb_array")]
         )
