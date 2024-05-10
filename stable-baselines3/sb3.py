@@ -6,7 +6,6 @@ from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import SubprocVecEnv, VecFrameStack, VecMonitor
 from stable_baselines3.common.atari_wrappers import MaxAndSkipEnv
 from stable_baselines3.common.callbacks import BaseCallback
-from stable_baselines3.common.results_plotter import load_results, ts2xy
 
 from nes_py.wrappers import JoypadSpace
 import gym_super_mario_bros
@@ -19,22 +18,20 @@ import os
 from typing import Callable
 
 
-class SaveOnBestTrainingRewardCallback(BaseCallback):
+class SaveBestModelCallback(BaseCallback):
     """
-    Callback for saving a model (the check is done every ``check_freq`` steps)
-    based on the training reward (in practice, we recommend using ``EvalCallback``).
+    Callback for saving the best performing model during training.
 
-    :param check_freq:
-    :param log_dir: Path to the folder where the model will be saved.
-      It must contains the file created by the ``Monitor`` wrapper.
-    :param verbose: Verbosity level.
+    :param eval_env: The environment used for evaluation.
+    :param save_path: Path to save the best model weights.
+    :param verbose: Whether to print debug information.
     """
 
-    def __init__(self, check_freq: int, log_dir: str, verbose: int = 1):
-        super(SaveOnBestTrainingRewardCallback, self).__init__(verbose)
-        self.check_freq = check_freq
-        self.log_dir = log_dir
-        self.save_path = os.path.join(log_dir, "models")
+    def __init__(self, eval_env, save_path, eval_freq=10000, verbose=0):
+        super(SaveBestModelCallback, self).__init__(verbose)
+        self.eval_env = eval_env
+        self.save_path = save_path
+        self.eval_freq = eval_freq
         self.best_mean_reward = -np.inf
 
     def _init_callback(self) -> None:
@@ -42,35 +39,42 @@ class SaveOnBestTrainingRewardCallback(BaseCallback):
         if self.save_path is not None:
             os.makedirs(self.save_path, exist_ok=True)
 
-    # TODO: change to _on_rollout_end and change mean computation
-    # TODO: add saving best model under a single filename, in addition to the checkpoints
-    # TODO: add saving final trained file always
-    def _on_step(self) -> bool:
-        if self.n_calls % self.check_freq == 0:
-            # Retrieve training reward
-            x, y = ts2xy(load_results(self.log_dir), "timesteps")
-            if len(x) > 0:
-                # Mean training reward over the last 100 episodes
-                mean_reward = np.mean(y[-100:])
-                if self.verbose > 0:
-                    print(f"Num timesteps: {self.num_timesteps}")
-                    print(
-                        f"Best mean reward: {self.best_mean_reward:.2f} - Last mean reward per episode: {mean_reward:.2f}"
-                    )
+    def _on_epoch_end(self) -> bool:
+        """
+        This method will be called by the model at the end of each epoch.
 
-                # New best model, you could save the agent here
-                if mean_reward > self.best_mean_reward:
-                    self.best_mean_reward = mean_reward
-                    filename = os.path.join(
-                        self.save_path,
-                        f"model_ts_{self.num_timesteps:e}_rw_{mean_reward:.2f}",
-                    )
-                    # Example for saving best model
-                    if self.verbose > 0:
-                        print(f"Saving new best model to {filename}")
-                    self.model.save(filename)
+        :return: Whether or not training should continue.
+        """
+        if self.eval_freq > 0 and self.n_epochs % self.eval_freq == 0:
+            # Evaluate the model
+            mean_reward = self._evaluate_model()
+
+            # Save the best model if the mean reward is better than before
+            if mean_reward > self.best_mean_reward:
+                self.best_mean_reward = mean_reward
+                self.model.save(self.save_path)
+                if self.verbose > 0:
+                    print(f"Saving new best model with mean reward: {mean_reward}")
 
         return True
+
+    def _evaluate_model(self) -> float:
+        """
+        Evaluate the current model on the evaluation environment.
+
+        :return: The mean reward obtained by the model.
+        """
+        episode_rewards = []
+        for _ in range(self.eval_env.num_envs):
+            obs = self.eval_env.reset()
+            done = False
+            episode_reward = 0.0
+            while not done:
+                action, _ = self.model.predict(obs, deterministic=True)
+                obs, reward, done, _ = self.eval_env.step(action)
+                episode_reward += reward
+            episode_rewards.append(episode_reward)
+        return np.mean(episode_rewards)
 
 
 def linear_schedule(initial_value: float) -> Callable[[float], float]:
@@ -227,8 +231,8 @@ def parse_args(input=sys.argv[1:]):
         )
         parser.add_argument(
             "--save_frequency",
-            help="Number of timesteps before running callback",
-            default=5000,
+            help="Number of epochs before running callback",
+            default=2,
             type=int,
         )
 
@@ -254,7 +258,7 @@ if __name__ == "__main__":
 
     # Apply wrappers to environments
     vec_env = VecMonitor(
-        vec_env, filename=os.path.join(sub_args.output_directory, "monitor")
+        vec_env
     )  # Needed to retrieve ep_len_mean and ep_rew_mean datapoints that the regular Monitor wrapper usually produces
     vec_env = VecFrameStack(
         vec_env, n_stack=3
@@ -322,9 +326,17 @@ if __name__ == "__main__":
                 n_steps=n_steps,
             )
 
-        callback = SaveOnBestTrainingRewardCallback(
-            check_freq=max(sub_args.save_frequency // sub_args.num_envs, 1),
-            log_dir=sub_args.output_directory,
+        # TODO: run inference on eval_env?
+        eval_env = SubprocVecEnv(
+            [make_env(sub_args.world, sub_args.level, "rgb_array")]
+        )
+        eval_env = VecFrameStack(eval_env, n_stack=3)
+
+        callback = SaveBestModelCallback(
+            eval_env=eval_env,
+            save_path=os.path.join(sub_args.output_directory, "models"),
+            eval_freq=sub_args.save_frequency,
+            verbose=1,
         )
 
         model.learn(
@@ -332,5 +344,7 @@ if __name__ == "__main__":
             reset_num_timesteps=False,
             callback=callback,
         )
+
+        model.save(os.path.join(sub_args.output_directory, "models", "last_model"))
 
     vec_env.close()
