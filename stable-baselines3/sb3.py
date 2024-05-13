@@ -17,9 +17,6 @@ import sys
 import os
 from typing import Callable
 
-# TODO: create a unified inference/evaluation method. the callback has _evaluate_model() which is basically the same as the inference loop on line ~284.
-#       to facilitate this, both inferece/evaluation should use the eval_env and only instantiate vec_env if training mode is selected.
-
 
 class SaveBestModelCallback(BaseCallback):
     """
@@ -54,7 +51,12 @@ class SaveBestModelCallback(BaseCallback):
         """
         if self.eval_freq > 0 and self.n_updates % self.eval_freq == 0:
             # Evaluate the model
-            mean_reward = self._evaluate_model()
+            mean_reward = evaluate_model(
+                self.eval_env,
+                self.model,
+                num_episodes=self.eval_env.num_envs,
+                deterministic=True,
+            )
 
             # Save the best model if the mean reward is better than before
             if mean_reward > self.best_mean_reward:
@@ -65,33 +67,30 @@ class SaveBestModelCallback(BaseCallback):
 
         self.n_updates += 1
 
-    def _evaluate_model(self) -> float:
-        """
-        Evaluate the current model on the evaluation environment.
 
-        :return: The mean reward obtained by the model.
-        """
+def evaluate_model(env, model, num_episodes=1, deterministic=True):
+    """
+    Run the model on the given environment either for a number of episodes or until a stopping condition is met.
 
-        if self.verbose > 0:
-            print("Starting evaluation of model")
+    :param env: Environment to run the model in.
+    :param model: The trained model to use for predictions.
+    :param num_episodes: Number of episodes to run.
+    :param deterministic: Whether to use deterministic actions.
+    :return: Average reward over the number of episodes.
+    """
+    total_rewards = []
+    for episode in range(num_episodes):
+        obs = env.reset()
+        done = False
+        episode_rewards = 0
+        while not done:
+            action, _ = model.predict(obs, deterministic=deterministic)
+            obs, reward, done, info = env.step(action)
+            episode_rewards += reward
+        total_rewards.append(episode_rewards)
 
-        episode_rewards = []
-        for _ in range(self.eval_env.num_envs):
-            obs = self.eval_env.reset()
-            done = False
-            episode_reward = 0.0
-            while not done:
-                action, _ = self.model.predict(obs, deterministic=True)
-                obs, reward, done, _ = self.eval_env.step(action)
-                episode_reward += reward
-            episode_rewards.append(episode_reward)
-
-        mean_reward = np.mean(episode_rewards)
-
-        if self.verbose > 0:
-            print(f"Evaluation complete: mean reward {mean_reward}")
-
-        return mean_reward
+    average_reward = np.mean(total_rewards)
+    return average_reward
 
 
 def linear_schedule(initial_value: float) -> Callable[[float], float]:
@@ -258,28 +257,20 @@ if __name__ == "__main__":
 
     if top_args.inference:
         # Create a single environment for inference
-        env = make_env(sub_args.world, sub_args.level, render_mode="human")()
+        env = make_env(sub_args.world, sub_args.level, "human")()
         env = VecMonitor(env)
         env = VecFrameStack(env, n_stack=3)
 
         # Load model and perform inference
         model = PPO.load(sub_args.pretrained_weights_file)
-        obs = env.reset()
-        done = False
-        reward_total = 0
-        while not done:
-            action, _ = model.predict(obs, deterministic=True)
-            obs, reward, done, _ = env.step(action)
-            reward_total += reward
-            env.render()
-
-        print("Total reward:", reward_total)
+        average_reward = evaluate_model(env, model, num_episodes=1, deterministic=True)
+        print("Inference completed. Average Reward:", average_reward)
 
     if top_args.train:
         # Create vectorized environment
         vec_env = SubprocVecEnv(
             [
-                make_env(sub_args.world, sub_args.level, render_mode="rgb_array")
+                make_env(sub_args.world, sub_args.level, "rgb_array")
                 for _ in range(sub_args.num_envs)
             ]
         )
