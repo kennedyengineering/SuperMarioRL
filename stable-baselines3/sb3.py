@@ -17,7 +17,6 @@ import sys
 import os
 from typing import Callable
 
-# TODO: since inference is deterministic, it doesn't make sense to run multiple environments in parallel. either add a deterministic flag or enforce the use of a single environment.
 # TODO: create a unified inference/evaluation method. the callback has _evaluate_model() which is basically the same as the inference loop on line ~284.
 #       to facilitate this, both inferece/evaluation should use the eval_env and only instantiate vec_env if training mode is selected.
 
@@ -199,12 +198,6 @@ def parse_args(input=sys.argv[1:]):
             type=str,
         )
         parser.add_argument(
-            "--num_envs",
-            help="Number of environments to run in parallel",
-            default=1,
-            type=int,
-        )
-        parser.add_argument(
             "--num_time_steps",
             help="Number of timesteps to run environment (negative value means run until done)",
             default=-1,
@@ -263,45 +256,36 @@ if __name__ == "__main__":
     # Parse arguments
     top_args, sub_args = parse_args()
 
-    # Create vectorized environment
-    render_mode = "rgb_array"
     if top_args.inference:
-        render_mode = "human"
-    vec_env = SubprocVecEnv(
-        [
-            make_env(sub_args.world, sub_args.level, render_mode)
-            for _ in range(sub_args.num_envs)
-        ]
-    )  # Observation space is Box(0, 255, (84, 84, 1), uint8)
+        # Create a single environment for inference
+        env = make_env(sub_args.world, sub_args.level, render_mode="human")()
+        env = VecMonitor(env)
+        env = VecFrameStack(env, n_stack=3)
 
-    # Apply wrappers to environments
-    vec_env = VecMonitor(
-        vec_env
-    )  # Needed to retrieve ep_len_mean and ep_rew_mean datapoints that the regular Monitor wrapper usually produces
-    vec_env = VecFrameStack(
-        vec_env, n_stack=3
-    )  # Observation space becomes Box(0, 255, (84, 84, 3), uint8)
-
-    if top_args.inference:
-        # Inference agent
+        # Load model and perform inference
         model = PPO.load(sub_args.pretrained_weights_file)
-
-        done = [False]
-        time_steps = sub_args.num_time_steps
+        obs = env.reset()
+        done = False
         reward_total = 0
-        observation = vec_env.reset()
-        while not any(done) and (time_steps > 0 or time_steps < 0):
-            action, _ = model.predict(observation, deterministic=True)
-            observation, reward, done, _ = vec_env.step(action)
-            time_steps -= 1
+        while not done:
+            action, _ = model.predict(obs, deterministic=True)
+            obs, reward, done, _ = env.step(action)
             reward_total += reward
+            env.render()
 
-            vec_env.render()
-
-        print("time_steps:", sub_args.num_time_steps - time_steps)
-        print("reward:", reward_total)
+        print("Total reward:", reward_total)
 
     if top_args.train:
+        # Create vectorized environment
+        vec_env = SubprocVecEnv(
+            [
+                make_env(sub_args.world, sub_args.level, render_mode="rgb_array")
+                for _ in range(sub_args.num_envs)
+            ]
+        )
+        vec_env = VecMonitor(vec_env)
+        vec_env = VecFrameStack(vec_env, n_stack=3)
+
         # Train agent
         gamma = 0.9
         gae_lambda = 1.0
